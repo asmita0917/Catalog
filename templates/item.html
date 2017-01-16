@@ -1,0 +1,27 @@
+{% extends "main.html" %}
+{% block content %}
+    {{ super() }} 
+
+    <div class="items">
+        <h2>
+            {{ item[0].name }} 
+        </h2>
+            {% if item[0].creator_id == user_id %}
+                <a href="/category/{{main_category}}/editItem/{{item[0].id}}/"> Edit </a>
+                <br />
+                <a href="/category/{{main_category}}/deleteItem/{{item[0].id}}/">Delete</a>
+            {% endif %}
+            <ul>
+                <li>
+                    <img src="/uploads/{{item[0].image_url}}" width="300px" />
+                </li>
+                <li>
+                    {{ item[0].description }}
+
+                </li>
+                
+            </ul>
+        </div>
+    </div>
+
+{% endblock %}
