@@ -15,12 +15,38 @@ Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
+
+def categories():
+    return session.query(Category).order_by('name')
+
+def category(category_id):
+    return session.query(Category).filter_by(id=category_id).one()
+
+def item(item_id):
+        return session.query(Item, Category).filter_by(id=item_id).join(Category).one()
+
+def itemsLatestFirst():
+        return session.query(Item).order_by('id DESC').limit(10).all()
+
+def items(category_id):
+    return session.query(Item).filter_by(category_id=category_id).all()
+
+def addToDatabase(item):
+    session.add(item)
+    session.commit()
+    return
+
+def deleteFromDatabase(item):
+    session.delete(item)
+    session.commit()
+    return
+
 @app.route('/')
 @app.route('/category/')
 def category():
 	return render_template('category_list.html',
-                           categories=session.query(Category).all(),
-                           items=session.query(Item).order_by('id DESC').limit(10).all(),
+                           categories=categories(),
+                           items=itemsLatestFirst(),
                            )
 
 @app.route('/category/<int:category_id>/')
@@ -30,8 +56,8 @@ def showItemsForCategory(category_id):
 @app.route('/category/<int:category_id>/item/<int:item_id>/')
 def showItem(category_id, item_id):
 	return render_template('item.html',
-                           categories=session.query(Category).all(),
-                           item=session.query(Item, Category).filter_by(id=item_id).join(Category).one(),
+                           categories=categories(),
+                           item=item(item_id),
                            main_category=category_id)
 
 @app.route('/category/<int:category_id>/addItem', methods=['GET', 'POST'])
