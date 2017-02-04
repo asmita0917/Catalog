@@ -6,15 +6,12 @@
         <h2>
             {{ item.name }} 
         </h2>
-            {% if item.creator_id == user_id %}
+            {% if item.user_id == user_id %}
                 <a href="/category/{{main_category}}/editItem/{{item.id}}/"> Edit </a>
                 <br />
                 <a href="/category/{{main_category}}/deleteItem/{{item.id}}/">Delete</a>
             {% endif %}
             <ul>
-                <li>
-                    <img src="/uploads/{{item.image_url}}" width="300px" />
-                </li>
                 <li>
                     {{ item.description }}
 

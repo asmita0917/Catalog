@@ -54,14 +54,28 @@ def db_deleteFromDatabase(item):
     session.delete(item)
     session.commit()
     return
+def db_addUser(login_session):
+        newUser = User(name=login_session['name'], email=login_session['email'],
+                       picture=login_session['picture'])
+        session.add(newUser)
+        session.commit()
+        return
 
+def db_getUserBy(login_session):
+    try:
+        user = session.query(User).filter_by(email=login_session['email']).one()
+        return user
+    except:
+        db_addUser(login_session)
+        return session.query(User).filter_by(email=login_session['email']).one()
 
 @app.route('/login')
-def showLogin():
+def login():
     state = ''.join(random.choice(string.ascii_uppercase + string.digits)
                     for x in xrange(32))
     login_session['state'] = state
-    return render_template('login.html', STATE=state)
+    return render_template('login.html', user_id=login_session.get('user_id'),
+                           STATE=login_session.get('state'))
 
 @app.route('/')
 @app.route('/category/')
@@ -69,6 +83,8 @@ def category():
     return render_template('category_list.html',
                            categories=db_categories(),
                            items=db_itemsLatestFirst(),
+                           user_id=login_session.get('user_id'),
+                           STATE=login_session.get('state')
                            )
 
 @app.route('/category/<int:category_id>/')
@@ -76,21 +92,33 @@ def showItems(category_id):
     return render_template('category.html',
                            main_category=db_category(category_id),
                            categories=db_categories(),
-                           items=db_items(category_id))
+                           items=db_items(category_id),
+                           user_id=login_session.get('user_id'),
+                           STATE=login_session.get('state'))
 
 @app.route('/category/<int:category_id>/item/<int:item_id>/')
 def showItem(category_id, item_id):
     return render_template('item.html',
                            categories=db_categories(),
                            item=db_item(item_id),
-                           main_category=category_id)
+                           main_category=category_id,
+                           user_id=login_session.get('user_id'),
+                           STATE=login_session.get('state'))
+
+def user_allowed_to_modify(entity):
+    return ('user_id' in login_session and
+            entity.user_id == login_session['user_id'])
 
 @app.route('/category/<int:category_id>/addItem', methods=['GET', 'POST'])
 def addItem(category_id):
+    if 'username' not in login_session:
+        flash("Please login to add item")
+        return redirect(url_for('login'))
     if request.method == 'POST':
         item = Item(name=request.form['name'],
                         description=request.form['description'],
-                        category_id=category_id)
+                        category_id=category_id,
+                        user_id = login_session['user_id'])
         db_addToDatabase(item)
         return redirect(url_for('showItems', category_id=category_id))
     else:
@@ -100,8 +128,14 @@ def addItem(category_id):
 
 @app.route('/category/<int:category_id>/editItem/<int:item_id>/', methods=['GET', 'POST'])
 def editItem(category_id, item_id):
+    if 'username' not in login_session:
+        flash("Please login to edit item")
+        return redirect(url_for('login'))
+    item = db_item(item_id)
+    if not user_allowed_to_modify(item) :
+            flash("You are not authorized to edit this item")
+            return redirect('/')
     if request.method == 'POST':
-        item = db_item(item_id)
         item.name=request.form['name']
         item.description = request.form['description']
         item.category_id =category_id
@@ -110,18 +144,25 @@ def editItem(category_id, item_id):
     else:
         return render_template('editItem.html',
             category=db_category(category_id),
-            item=db_item(item_id))
+            item=item)
 
 @app.route('/category/<int:category_id>/deleteItem/<int:item_id>/', methods=['GET', 'POST'])
 def deleteItem(category_id, item_id):
+    if 'username' not in login_session:
+        flash("Please login to delete item")
+        return redirect(url_for('login'))
+
+    item = db_item(item_id)
+    if not user_allowed_to_modify(item) :
+        flash("You are not authorized to delete this item")
+        return redirect('/')
     if request.method == 'POST':
-        item = db_item(item_id)
         db_deleteFromDatabase(item)
         return redirect(url_for('showItems', category_id=category_id))
     else:
         return render_template('deleteItem.html',
             category=db_category(category_id),
-            item=db_item(item_id))
+            item=item)
 
 
 @app.route('/gconnect', methods=['POST'])
@@ -192,9 +233,11 @@ def gconnect():
 
     data = answer.json()
 
+    login_session['name'] = data['name']
     login_session['username'] = data['name']
     login_session['picture'] = data['picture']
     login_session['email'] = data['email']
+    login_session['user_id'] = db_getUserBy(login_session).id
 
     output = ''
     output += '<h1>Welcome, '
@@ -204,45 +247,60 @@ def gconnect():
     output += login_session['picture']
     output += ' " style = "width: 300px; height: 300px;border-radius: 150px;-webkit-border-radius: 150px;-moz-border-radius: 150px;"> '
     flash("you are now logged in as %s" % login_session['username'])
-    print "done!"
     return output
 
 
 @app.route('/gdisconnect')
-def gdisconnect():        
+def gdisconnect():
     try:
         access_token = login_session['access_token']
     except Exception:
         response = make_response(json.dumps('Current user not connected.'), 401)
         response.headers['Content-Type'] = 'application/json'
         return response
-    print 'In gdisconnect access token is %s', access_token
-    print 'User name is: ' 
-    print login_session['username']
     if access_token is None:
-        print 'Access Token is None'
         response = make_response(json.dumps('Current user not connected.'), 401)
         response.headers['Content-Type'] = 'application/json'
         return response
     url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['access_token']
     h = httplib2.Http()
     result = h.request(url, 'GET')[0]
-    print 'result is '
-    print result
     if result['status'] == '200':
         del login_session['access_token'] 
         del login_session['gplus_id']
         del login_session['username']
         del login_session['email']
         del login_session['picture']
+        del login_session['name']
+        del login_session['user_id']
         response = make_response(json.dumps('Successfully disconnected.'), 200)
         response.headers['Content-Type'] = 'application/json'
-        return response
+        return redirect(url_for('category'))
+
     else:
     
         response = make_response(json.dumps('Failed to revoke token for given user.', 400))
         response.headers['Content-Type'] = 'application/json'
         return response
+
+
+# JSON API
+@app.route('/category/JSON/')
+def categoryJSON():
+    categories = db_categories()
+    return jsonify(categories=[category.serialize for category in categories])
+
+
+@app.route('/category/<int:category_id>/items/JSON/')
+def itemsJSON(category_id):
+    items = db_items(category_id)
+    return jsonify(items=[item.serialize for item in items])
+
+@app.route('/category/<int:category_id>/item/<int:item_id>/JSON/')
+def itemJSON(category_id, item_id):
+    item = db_item(item_id)
+    return jsonify(CategoryItem=item.serialize)
+
 
 
 if __name__ == '__main__':

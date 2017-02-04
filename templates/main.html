@@ -12,27 +12,85 @@
 
     </head>
     <body>
-<div class="content">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
 
-        {% block content %}
-            <div class="categories">
-                <h2>
-                    Categories
-                </h2>
-    
-                    <ul>
-                {% for category in categories %}
-                        <li>
-                            <a href="{{url_for('showItems', category_id=category.id)}}" >
-                                {{ category.name }}
-                            </a>
-                        </li>
-                {% endfor %}
-                    </ul>
+    <ul>
+    {% for message in messages %}
+      <li><strong>{{message}}</strong></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+    <div id="sign_in_button">
+        {% if user_id == None %}
+            
+            <span class="g-signin"
+             data-scope="openid email"
+             data-clientid="833121034831-9ffebkcbnkiopq5840vpmbbh8lbfddre.apps.googleusercontent.com"
+             data-redirecturi="postmessage"
+             data-accesstype="offline"
+             data-cookiepolicy="single_host_origin"
+             data-callback="signInCallback"
+             data-approvalprompt="force">
+            </span>
+           
+        {% else %}
 
-            </div>
+            <a href="{{url_for('gdisconnect')}}">
+                Logout
+            </a>
 
-        {% endblock %}
-        </div>       
+        {% endif %}
+    </div>
+    <div class="content">
+
+            {% block content %}
+                <div class="categories">
+                    <h2>
+                        Categories
+                    </h2>
+        
+                        <ul>
+                    {% for category in categories %}
+                            <li>
+                                <a href="{{url_for('showItems', category_id=category.id)}}" >
+                                    {{ category.name }}
+                                </a>
+                            </li>
+                    {% endfor %}
+                        </ul>
+
+                </div>
+
+            {% endblock %}
+            </div>    
+            <script>
+        function signInCallback(authResult){
+            if(authResult['code']){
+                $('#sign_in_button').attr('style','display:none');
+                $.ajax({
+                    type:'POST',
+                    url: '/gconnect?state={{STATE}}',
+                    processData:false,
+                    contentType:  'application/octet-stream; charset=utf-8',
+                    data: authResult['code'],
+                    success:function(result){
+                        console.log(result);
+                        if(result){
+                            $('#result').html('Login Successful!<br />' + result + '<br /> Redirecting...')
+                            setTimeout(function(){
+                                window.location.href="/category/";
+                            }, 4000);
+                        }else if(authResult['error']){
+                            console.log('Something\'s gone horribly wrong: ' + authResult['error'])
+                        }else{
+                            $('#result').html('Failed to make a server-sid call. Check the configuration console.')
+                        }
+                    }
+                }) 
+            }
+        }
+    </script>   
     </body>
 </html>
