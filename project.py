@@ -28,6 +28,8 @@ CLIENT_ID = json.loads(
 
 
 ''' Util functions for db operations'''
+
+
 def db_categories():
     return session.query(Category).order_by('name')
 
@@ -92,6 +94,8 @@ def createState():
 
 
 ''' routes for web app'''
+
+
 @app.route('/login')
 def login():
     createState()
@@ -137,7 +141,10 @@ def user_allowed_to_modify(entity):
     return ('user_id' in login_session and
             entity.user_id == login_session['user_id'])
 
+
 ''' Decorator function to check authorization '''
+
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
