@@ -93,7 +93,6 @@ def createState():
         login_session['state'] = state
 
 
-
 ''' routes for web app'''
 
 
@@ -143,9 +142,7 @@ def user_allowed_to_modify(entity):
             entity.user_id == login_session['user_id'])
 
 
-
 ''' Decorator function to check authorization '''
-
 
 
 def login_required(f):
